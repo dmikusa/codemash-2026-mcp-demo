@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Annotated, Dict, TypedDict, cast
+from typing import Annotated, Dict, Literal, TypedDict, cast
 
 CODEMASH_EVENT_ID = "76186000006678002"
 
@@ -79,6 +79,19 @@ class Venue(TypedDict, total=False):
     country: str
 
 
+ConferenceDay = Literal["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
+CONFERENCE_DAY_AGENDA_MAP: Dict[ConferenceDay, str] = {
+    "MONDAY": "76186000008378878",
+    "TUESDAY": "76186000008378881",
+    "WEDNESDAY": "76186000008389020",
+    "THURSDAY": "76186000008389143",
+    "FRIDAY": "76186000008389405",
+}
+
+
+# TODO: add useful filtering for common queries
+# - speakers by track
+# - speaker f/l name
 class CodeMashDataReader:
     """A class to read CodeMash data from JSON files."""
 
@@ -224,26 +237,113 @@ class CodeMashDataReader:
 
     def sessions(
         self,
+        track_name: Annotated[str | None, "Filter sessions by track name"] = None,
+        venue_name: Annotated[str | None, "Filter sessions by venue name"] = None,
+        speaker_name: Annotated[
+            str | None,
+            "Filter sessions by speaker name. Name may be first, last, and may be partial (case-insensitive, contains).",
+        ] = None,
+        day_of_week: Annotated[
+            ConferenceDay | None, "Filter sessions by day of the week"
+        ] = None,
+        start_time_range: Annotated[
+            str | None,
+            "Filter sessions by time range, start time. Format: 'HHMM', which must pad with a leading zero for single digit hours. It uses the 24-hour clock. Start time must be before end time and cannot span midnight.",
+        ] = None,
+        end_time_range: Annotated[
+            str | None,
+            "Filter sessions by time range, end time. Format: 'HHMM', which must pad with a leading zero for single digit hours. It uses the 24-hour clock. Start time must be before end time and cannot span midnight.",
+        ] = None,
+        duration: Annotated[
+            Literal[30, 60, 90, 115, 120, 125, 145, 180, 210, 235, 240, 265, 295]
+            | None,
+            "Filter sessions by duration in minutes.",
+        ] = None,
     ) -> Annotated[list[Session], "List of sessions for the CodeMash 2026 event"]:
-        """Fetch the list of sessions for the CodeMash 2026 event."""
+        """Fetch the list of sessions for the CodeMash 2026 event.
+
+        This method will return all of the sessions for the event, which can be a lot of data. You should prefer filtering
+        by track name, venue name, speaker name, duration, day of the week, and/or time range to limit the results.
+        """
+        if (start_time_range and not end_time_range) or (
+            end_time_range and not start_time_range
+        ):
+            raise ValueError(
+                "Both start_time_range and end_time_range must be provided together."
+            )
+
+        if start_time_range and end_time_range and start_time_range >= end_time_range:
+            raise ValueError(
+                "start_time_range must be before end_time_range and cannot span midnight."
+            )
+
+        if start_time_range and (
+            len(start_time_range) != 4 or not start_time_range.isdigit()
+        ):
+            raise ValueError(
+                "start_time_range must be in 'HHMM' format, which must pad with a leading zero for single digit hours."
+            )
+
+        if end_time_range and (
+            len(end_time_range) != 4 or not end_time_range.isdigit()
+        ):
+            raise ValueError(
+                "end_time_range must be in 'HHMM' format, which must pad with a leading zero for single digit hours."
+            )
+
+        if start_time_range and (
+            start_time_range < "0000" or start_time_range > "2400"
+        ):
+            raise ValueError(
+                "start_time_range must be a valid time in 'HHMM' format between '0000' and '2400'."
+            )
+
+        if end_time_range and (end_time_range < "0000" or end_time_range > "2400"):
+            raise ValueError(
+                "end_time_range must be a valid time in 'HHMM' format between '0000' and '2400'."
+            )
+
         session_list = []
 
         for session in self.data.get("sessions", []):
+            if (
+                day_of_week
+                and session.get("agenda") != CONFERENCE_DAY_AGENDA_MAP[day_of_week]
+            ):
+                continue
+
+            session_start_time = session.get("startTime", None)
+            if (
+                start_time_range
+                and end_time_range
+                and session_start_time
+                and not (start_time_range <= session_start_time <= end_time_range)
+            ):
+                continue
+
+            if duration and int(session.get("duration", "0")) != duration:
+                continue
+
             session_venue = self._find_matching_id(
                 "sessionVenues", session.get("venue"), "id"
             )
             if session_venue.get("event") != CODEMASH_EVENT_ID:
                 continue
-
             venue = self._find_matching_id(
                 "sessionVenueTranslations", session.get("venue"), "sessionVenue"
             )
+            if venue_name and venue.get("name", "") != venue_name:
+                continue
+
             session_translation = self._find_matching_id(
                 "sessionTranslations", session.get("id"), "session"
             )
             track_translation = self._find_matching_id(
                 "trackTranslations", session.get("track", ""), "track"
             )
+            if track_name and track_translation.get("title", "") != track_name:
+                continue
+
             speakers = []
             for session_speaker in self.data.get("sessionSpeakers", []):
                 if (
@@ -262,6 +362,14 @@ class CodeMashDataReader:
                             last_name=user_profile.get("lastName", ""),
                         )
                     )
+            if speaker_name and not any(
+                f"{speaker['name']} {speaker['last_name']}".lower().find(
+                    speaker_name.lower()
+                )
+                != -1
+                for speaker in speakers
+            ):
+                continue
 
             session_list.append(
                 Session(
@@ -269,7 +377,7 @@ class CodeMashDataReader:
                         "title": session_translation.get("title", "Untitled"),
                         "description": session_translation.get("description", ""),
                         "type": session.get("sessionType", ""),
-                        "start_time": session.get("startTime", ""),
+                        "start_time": session_start_time,
                         "duration": int(session.get("duration", "0")),
                         "track": track_translation.get("title", "Unknown"),
                         "venue": venue.get("name", "Unknown"),
