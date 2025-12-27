@@ -1,0 +1,22 @@
+[project]
+name = "codemash-mcp"
+version = "0.1.0"
+description = "An MCP server for CodeMash 2026"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastmcp>=2.14.1",
+]
+
+[build-system]
+requires = [ "uv_build>=0.8.13,<0.9.0",]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [ "coverage>=7.10.5", "jsonschema>=4.25.1", "pyright>=1.1.405", "pytest>=8.4.1", "ruff>=0.13.0",]
+
+[tool.pyright]
+include = [ "src",]
+exclude = [ "**/__pycache__",]
+pythonVersion = "3.11"
+pythonPlatform = "Linux"
