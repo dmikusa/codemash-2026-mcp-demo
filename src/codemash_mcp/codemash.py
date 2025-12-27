@@ -1,8 +1,82 @@
 import json
 from pathlib import Path
-from typing import Dict, cast
+from typing import Annotated, Dict, TypedDict, cast
 
 CODEMASH_EVENT_ID = "76186000006678002"
+
+
+class Event(TypedDict, total=False):
+    name: str
+    description: str
+    summary: str
+    start_date: str
+    end_date: str
+    timezone: str
+    domain: str
+    twitter: str
+    facebook: str
+    linkedin: str
+    youtube: str
+    instagram: str
+    website: str
+
+
+class Hotel(TypedDict, total=False):
+    name: str
+    address: str
+    website: str
+
+
+class SpeakerSession(TypedDict, total=False):
+    title: str
+    description: str
+    type: str
+    start_time: str
+    duration: int
+    track: str
+    venue: str
+
+
+class Speaker(TypedDict, total=False):
+    name: str
+    last_name: str
+    company: str | None
+    designation: str | None
+    twitter: str | None
+    linkedin: str | None
+    description: str | None
+    sessions: list[SpeakerSession]
+
+
+class SessionSpeaker(TypedDict, total=False):
+    name: str
+    last_name: str
+
+
+class Session(TypedDict, total=False):
+    title: str
+    description: str | None
+    type: str
+    start_time: str
+    duration: int
+    track: str
+    venue: str
+    speakers: list[SessionSpeaker]
+
+
+class Track(TypedDict, total=False):
+    name: str
+
+
+class Venue(TypedDict, total=False):
+    name: str
+    street: str
+    city: str
+    state: str
+    latitude: float
+    longitude: float
+    zipcode: str
+    country: str
 
 
 class CodeMashDataReader:
@@ -27,7 +101,8 @@ class CodeMashDataReader:
             ),
         )
 
-    def event(self):
+    def event(self) -> Annotated[Event | None, "CodeMash 2026 event information"]:
+        """Retrieves information about the CodeMash 2026 event itself."""
         for event in self.data.get("events", []):
             if event.get("id") != CODEMASH_EVENT_ID:
                 continue
@@ -39,23 +114,32 @@ class CodeMashDataReader:
             socials = self._find_matching_id(
                 "eventSocialHandles", event.get("eventSocialHandle")
             )
-            return {
-                "name": event_translation.get("name", "Unknown"),
-                "description": event_translation.get("description", ""),
-                "summary": event_translation.get("summary", ""),
-                "start_date": event.get("startDate", ""),
-                "end_date": event.get("endDate", ""),
-                "timezone": event.get("timezone", ""),
-                "domain": portal.get("domain", ""),
-                "twitter": socials.get("twitter", ""),
-                "facebook": socials.get("facebook", ""),
-                "linkedin": socials.get("linkedIn", ""),
-                "youtube": socials.get("youtube", ""),
-                "instagram": socials.get("instagram", ""),
-                "website": socials.get("website", ""),
-            }
+            return Event(
+                {
+                    "name": event_translation.get("name", "Unknown"),
+                    "description": event_translation.get("description", ""),
+                    "summary": event_translation.get("summary", ""),
+                    "start_date": event.get("startDate", ""),
+                    "end_date": event.get("endDate", ""),
+                    "timezone": event.get("timezone", ""),
+                    "domain": portal.get("domain", ""),
+                    "twitter": socials.get("twitter", ""),
+                    "facebook": socials.get("facebook", ""),
+                    "linkedin": socials.get("linkedIn", ""),
+                    "youtube": socials.get("youtube", ""),
+                    "instagram": socials.get("instagram", ""),
+                    "website": socials.get("website", ""),
+                }
+            )
+        return None
 
-    def hotels(self):
+    def hotels(
+        self,
+    ) -> Annotated[list[Hotel], "List of hotels for the CodeMash 2026 event."]:
+        """Fetch the list of hotels available for the CodeMash 2026 event.
+
+        This list does not include the Kalahari itself, which is also a viable hotel option.
+        """
         hotel_list = []
         for hotel in self.data.get("hotels", []):
             if hotel.get("event") != CODEMASH_EVENT_ID:
@@ -65,15 +149,20 @@ class CodeMashDataReader:
                 "hotelTranslations", hotel.get("id"), "hotel"
             )
             hotel_list.append(
-                {
-                    "name": hotel_translation.get("name", ""),
-                    "address": hotel_translation.get("address", ""),
-                    "website": hotel.get("websiteUrl", ""),
-                }
+                Hotel(
+                    {
+                        "name": hotel_translation.get("name", ""),
+                        "address": hotel_translation.get("address", ""),
+                        "website": hotel.get("websiteUrl", ""),
+                    }
+                )
             )
         return hotel_list
 
-    def speakers(self):
+    def speakers(
+        self,
+    ) -> Annotated[list[Speaker], "List of speakers for the CodeMash 2026 event"]:
+        """Fetch the list of speakers for the CodeMash 2026 event."""
         speaker_list = []
         for speaker in self.data.get("speakers", []):
             if speaker.get("event") != CODEMASH_EVENT_ID:
@@ -102,32 +191,41 @@ class CodeMashDataReader:
                     )
 
                     sessions.append(
-                        {
-                            "title": session_translations.get("title", "Untitled"),
-                            "description": session_translations.get("description", ""),
-                            "type": session.get("sessionType", ""),
-                            "start_time": session.get("startTime", ""),
-                            "duration": session.get("duration", 0),
-                            "track": track_translation.get("title", "Unknown"),
-                            "venue": venue.get("name", "Unknown"),
-                        }
+                        SpeakerSession(
+                            {
+                                "title": session_translations.get("title", "Untitled"),
+                                "description": session_translations.get(
+                                    "description", ""
+                                ),
+                                "type": session.get("sessionType", ""),
+                                "start_time": session.get("startTime", ""),
+                                "duration": int(session.get("duration", "0")),
+                                "track": track_translation.get("title", "Unknown"),
+                                "venue": venue.get("name", "Unknown"),
+                            }
+                        )
                     )
 
             speaker_list.append(
-                {
-                    "name": user_profile.get("name"),
-                    "last_name": user_profile.get("lastName"),
-                    "company": user_profile.get("company", ""),
-                    "designation": user_profile.get("designation", ""),
-                    "twitter": user_profile.get("twitter", ""),
-                    "linkedin": user_profile.get("linkedin", ""),
-                    "description": user_profile.get("description", ""),
-                    "sessions": sessions,
-                }
+                Speaker(
+                    {
+                        "name": user_profile.get("name", "Unknown"),
+                        "last_name": user_profile.get("lastName", "Unknown"),
+                        "company": user_profile.get("company"),
+                        "designation": user_profile.get("designation"),
+                        "twitter": user_profile.get("twitter"),
+                        "linkedin": user_profile.get("linkedin"),
+                        "description": user_profile.get("description"),
+                        "sessions": sessions,
+                    }
+                )
             )
         return speaker_list
 
-    def sessions(self):
+    def sessions(
+        self,
+    ) -> Annotated[list[Session], "List of sessions for the CodeMash 2026 event"]:
+        """Fetch the list of sessions for the CodeMash 2026 event."""
         session_list = []
 
         for session in self.data.get("sessions", []):
@@ -159,24 +257,32 @@ class CodeMashDataReader:
                         "userProfiles", speaker.get("userProfile")
                     )
                     speakers.append(
-                        f"{user_profile.get('name')} {user_profile.get('lastName')}"
+                        SessionSpeaker(
+                            name=user_profile.get("name", ""),
+                            last_name=user_profile.get("lastName", ""),
+                        )
                     )
 
             session_list.append(
-                {
-                    "title": session_translation.get("title", "Untitled"),
-                    "description": session_translation.get("description", ""),
-                    "type": session.get("sessionType", ""),
-                    "start_time": session.get("startTime", ""),
-                    "duration": session.get("duration", 0),
-                    "track": track_translation.get("title", "Unknown"),
-                    "venue": venue.get("name", "Unknown"),
-                    "speakers": speakers,
-                }
+                Session(
+                    {
+                        "title": session_translation.get("title", "Untitled"),
+                        "description": session_translation.get("description", ""),
+                        "type": session.get("sessionType", ""),
+                        "start_time": session.get("startTime", ""),
+                        "duration": int(session.get("duration", "0")),
+                        "track": track_translation.get("title", "Unknown"),
+                        "venue": venue.get("name", "Unknown"),
+                        "speakers": speakers,
+                    }
+                )
             )
         return session_list
 
-    def tracks(self):
+    def tracks(
+        self,
+    ) -> Annotated[list[Track], "List of tracks for the CodeMash 2026 event"]:
+        """Fetch the list of tracks for the CodeMash 2026 event."""
         track_list = []
         for track in self.data.get("tracks", []):
             if track.get("event") != CODEMASH_EVENT_ID:
@@ -186,13 +292,18 @@ class CodeMashDataReader:
                 "trackTranslations", track.get("id"), "track"
             )
             track_list.append(
-                {
-                    "name": track_translation.get("title", "Unknown"),
-                }
+                Track(
+                    {
+                        "name": track_translation.get("title", "Unknown"),
+                    }
+                )
             )
         return track_list
 
-    def venue(self):
+    def venue(
+        self,
+    ) -> Annotated[Venue | None, "Venue information for the CodeMash 2026 event"]:
+        """Fetch the venue information for the CodeMash 2026 event."""
         for venue in self.data.get("venues", []):
             if venue.get("event") != CODEMASH_EVENT_ID:
                 continue
@@ -200,13 +311,16 @@ class CodeMashDataReader:
             venue_translation = self._find_matching_id(
                 "venueTranslations", venue.get("id"), "venue"
             )
-            return {
-                "name": venue_translation.get("name", "Unknown"),
-                "street": venue_translation.get("street", ""),
-                "city": venue_translation.get("townOrCity", ""),
-                "state": venue_translation.get("state", ""),
-                "latitude": venue.get("latitude"),
-                "longitude": venue.get("longitude"),
-                "zipcode": venue.get("zipcode"),
-                "country": venue.get("country"),
-            }
+            return Venue(
+                {
+                    "name": venue_translation.get("name", "Unknown"),
+                    "street": venue_translation.get("street", ""),
+                    "city": venue_translation.get("townOrCity", ""),
+                    "state": venue_translation.get("state", ""),
+                    "latitude": float(venue.get("latitude")),
+                    "longitude": float(venue.get("longitude")),
+                    "zipcode": venue.get("zipcode"),
+                    "country": venue.get("country"),
+                }
+            )
+        return None
