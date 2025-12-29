@@ -1,15 +1,11 @@
 from typing import Any, Dict, cast
 from codemash_mcp.types import (
-    Event,
-    Hotel,
     Speaker,
     SpeakerSession,
     Session,
-    SessionSpeaker,
-    Track,
-    Venue,
     ConferenceDay,
 )
+
 
 CODEMASH_EVENT_ID = "76186000006678002"
 CONFERENCE_DAY_AGENDA_MAP: Dict[ConferenceDay, str] = {
@@ -21,6 +17,7 @@ CONFERENCE_DAY_AGENDA_MAP: Dict[ConferenceDay, str] = {
 }
 
 
+# --- Generic helper functions ---
 def is_codemash_event(item: Dict, key="event") -> bool:
     return item.get(key) == CODEMASH_EVENT_ID
 
@@ -41,6 +38,85 @@ def find_matching_id(
     )
 
 
+# --- Speaker helper functions ---
+def speakers_filter_by_speaker_name(data, speaker, **kwargs):
+    speaker_name = kwargs.get("speaker_name")
+    if not speaker_name:
+        return True
+    user_profile = find_matching_id(data, "userProfiles", speaker.get("userProfile"))
+    name = (
+        user_profile.get("name", "") + " " + user_profile.get("lastName", "")
+    ).lower()
+    return speaker_name.lower() in name
+
+
+def speakers_filter_by_track_name(data, speaker, **kwargs):
+    track_name = kwargs.get("track_name")
+    if not track_name:
+        return True
+    speaker_id = speaker.get("id")
+    for item in data.get("sessionSpeakers", []):
+        if item.get("speaker") == speaker_id and is_codemash_event(item):
+            session = find_matching_id(data, "sessions", item.get("session"))
+            track = find_matching_id(
+                data, "trackTranslations", session.get("track", ""), "track"
+            )
+            if track_name.lower() in track.get("title", "").lower():
+                return True
+    return False
+
+
+# List of speaker filters
+speaker_filters = [
+    speakers_filter_by_speaker_name,
+    speakers_filter_by_track_name,
+]
+
+
+def map_to_speaker(data, speaker):
+    user_profile = find_matching_id(data, "userProfiles", speaker.get("userProfile"))
+    speaker_id = speaker.get("id")
+    sessions = []
+    for item in data.get("sessionSpeakers", []):
+        if item.get("speaker") == speaker_id and is_codemash_event(item):
+            session = find_matching_id(data, "sessions", item.get("session"))
+            session_translations = find_matching_id(
+                data, "sessionTranslations", item.get("session"), "session"
+            )
+            track_translation = find_matching_id(
+                data, "trackTranslations", session.get("track", ""), "track"
+            )
+            venue = find_matching_id(
+                data, "sessionVenueTranslations", session.get("venue"), "sessionVenue"
+            )
+            sessions.append(
+                SpeakerSession(
+                    {
+                        "title": session_translations.get("title", "Untitled"),
+                        "description": session_translations.get("description", ""),
+                        "type": session.get("sessionType", ""),
+                        "start_time": session.get("startTime", ""),
+                        "duration": int(session.get("duration", "0")),
+                        "track": track_translation.get("title", "Unknown"),
+                        "venue": venue.get("name", "Unknown"),
+                    }
+                )
+            )
+    return Speaker(
+        {
+            "name": user_profile.get("name", "Unknown"),
+            "last_name": user_profile.get("lastName", "Unknown"),
+            "company": user_profile.get("company"),
+            "designation": user_profile.get("designation"),
+            "twitter": user_profile.get("twitter"),
+            "linkedin": user_profile.get("linkedin"),
+            "description": user_profile.get("description"),
+            "sessions": sessions,
+        }
+    )
+
+
+# --- Session helper functions ---
 def sessions_validations(start_time_range, end_time_range):
     if start_time_range and end_time_range and start_time_range >= end_time_range:
         raise ValueError(

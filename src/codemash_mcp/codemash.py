@@ -15,16 +15,15 @@ from codemash_mcp.types import (
 )
 from codemash_mcp.helpers import (
     map_to_session,
+    map_to_speaker,
     find_matching_id,
     is_codemash_event,
     filters,
+    speaker_filters,
     sessions_validations,
 )
 
 
-# TODO: add useful filtering for common queries
-# - speakers by track
-# - speaker f/l name
 class CodeMashDataReader:
     """A class to read CodeMash data from JSON files."""
 
@@ -92,70 +91,23 @@ class CodeMashDataReader:
 
     def speakers(
         self,
+        track_name: Annotated[str | None, "Filter speakers by track name"] = None,
+        speaker_name: Annotated[
+            str | None,
+            "Filter speakers by speaker name. Name may be first, last, and may be partial (case-insensitive, contains).",
+        ] = None,
     ) -> Annotated[list[Speaker], "List of speakers for the CodeMash 2026 event"]:
-        """Fetch the list of speakers for the CodeMash 2026 event."""
+        """Fetch the list of speakers for the CodeMash 2026 event.
+
+        Optionally filter by track name and/or speaker name.
+        """
         speaker_list = []
         for speaker in self.data.get("speakers", []):
             if not is_codemash_event(speaker):
                 continue
-
-            user_profile = find_matching_id(
-                self.data, "userProfiles", speaker.get("userProfile")
-            )
-
-            speaker_id = speaker.get("id")
-            sessions = []
-            for item in self.data.get("sessionSpeakers", []):
-                if item.get("speaker") == speaker_id and is_codemash_event(item):
-                    session = find_matching_id(
-                        self.data, "sessions", item.get("session")
-                    )
-                    session_translations = find_matching_id(
-                        self.data, "sessionTranslations", item.get("session"), "session"
-                    )
-                    track_translation = find_matching_id(
-                        self.data,
-                        "trackTranslations",
-                        session.get("track", ""),
-                        "track",
-                    )
-                    venue = find_matching_id(
-                        self.data,
-                        "sessionVenueTranslations",
-                        session.get("venue"),
-                        "sessionVenue",
-                    )
-
-                    sessions.append(
-                        SpeakerSession(
-                            {
-                                "title": session_translations.get("title", "Untitled"),
-                                "description": session_translations.get(
-                                    "description", ""
-                                ),
-                                "type": session.get("sessionType", ""),
-                                "start_time": session.get("startTime", ""),
-                                "duration": int(session.get("duration", "0")),
-                                "track": track_translation.get("title", "Unknown"),
-                                "venue": venue.get("name", "Unknown"),
-                            }
-                        )
-                    )
-
-            speaker_list.append(
-                Speaker(
-                    {
-                        "name": user_profile.get("name", "Unknown"),
-                        "last_name": user_profile.get("lastName", "Unknown"),
-                        "company": user_profile.get("company"),
-                        "designation": user_profile.get("designation"),
-                        "twitter": user_profile.get("twitter"),
-                        "linkedin": user_profile.get("linkedin"),
-                        "description": user_profile.get("description"),
-                        "sessions": sessions,
-                    }
-                )
-            )
+            if not all(f(self.data, speaker, track_name=track_name, speaker_name=speaker_name) for f in speaker_filters):
+                continue
+            speaker_list.append(map_to_speaker(self.data, speaker))
         return speaker_list
 
     def sessions(

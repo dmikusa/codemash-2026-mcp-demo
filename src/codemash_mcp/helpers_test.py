@@ -1,4 +1,5 @@
 import pytest
+import json
 
 from codemash_mcp import helpers
 
@@ -141,9 +142,6 @@ def test_sessions_filter_by_speaker():
     assert not helpers.sessions_filter_by_speaker(data, session, speaker_name="Bob")
 
 
-# Test sessions_attach_extra_info
-
-
 # Test map_to_session
 def test_map_to_session():
     data = {
@@ -165,3 +163,143 @@ def test_map_to_session():
     assert result["venue"] == VENUE_1
     assert result["speakers"][0]["name"] == "Alice"
     assert result["start_time"] == "0900"
+
+
+def _make_test_data(
+    tmp_path, speakers, user_profiles, session_speakers, sessions, track_translations
+):
+    data = {
+        "speakers": speakers,
+        "userProfiles": user_profiles,
+        "sessionSpeakers": session_speakers,
+        "sessions": sessions,
+        "trackTranslations": track_translations,
+    }
+    file_path = tmp_path / "test.json"
+    with open(file_path, "w") as f:
+        json.dump(data, f)
+    return file_path
+
+
+def test_speakers_filter_by_speaker_name(tmp_path):
+    speakers = [
+        {"id": 1, "event": "76186000006678002", "userProfile": 10},
+        {"id": 2, "event": "76186000006678002", "userProfile": 20},
+    ]
+    user_profiles = [
+        {"id": 10, "name": "Alice", "lastName": "Smith"},
+        {"id": 20, "name": "Bob", "lastName": "Jones"},
+    ]
+    session_speakers = []
+    sessions = []
+    track_translations = []
+    file_path = _make_test_data(
+        tmp_path,
+        speakers,
+        user_profiles,
+        session_speakers,
+        sessions,
+        track_translations,
+    )
+    import codemash_mcp.codemash as codemash
+
+    reader = codemash.CodeMashDataReader(file_path)
+    # Directly test filter helper
+    data = json.load(open(file_path, "r"))
+    assert helpers.speakers_filter_by_speaker_name(
+        data, data["speakers"][0], speaker_name="alice"
+    )
+    assert not helpers.speakers_filter_by_speaker_name(
+        data, data["speakers"][1], speaker_name="alice"
+    )
+    result = reader.speakers(speaker_name="alice")
+    assert len(result) == 1
+    assert result[0]["name"] == "Alice"  # type: ignore
+
+
+def test_speakers_filter_by_track_name(tmp_path):
+    speakers = [
+        {"id": 1, "event": "76186000006678002", "userProfile": 10},
+        {"id": 2, "event": "76186000006678002", "userProfile": 20},
+    ]
+    user_profiles = [
+        {"id": 10, "name": "Alice", "lastName": "Smith"},
+        {"id": 20, "name": "Bob", "lastName": "Jones"},
+    ]
+    session_speakers = [
+        {"speaker": 1, "session": 100, "event": "76186000006678002"},
+        {"speaker": 2, "session": 200, "event": "76186000006678002"},
+    ]
+    sessions = [
+        {"id": 100, "track": 1000, "event": "76186000006678002"},
+        {"id": 200, "track": 2000, "event": "76186000006678002"},
+    ]
+    track_translations = [
+        {"id": 1000, "title": "Python", "track": 1000},
+        {"id": 2000, "title": "JavaScript", "track": 2000},
+    ]
+    file_path = _make_test_data(
+        tmp_path,
+        speakers,
+        user_profiles,
+        session_speakers,
+        sessions,
+        track_translations,
+    )
+    import codemash_mcp.codemash as codemash
+
+    reader = codemash.CodeMashDataReader(file_path)
+    data = json.load(open(file_path, "r"))
+    # Directly test filter helper
+    assert helpers.speakers_filter_by_track_name(
+        data, data["speakers"][0], track_name="python"
+    )
+    assert not helpers.speakers_filter_by_track_name(
+        data, data["speakers"][1], track_name="python"
+    )
+    result = reader.speakers(track_name="python")
+    assert len(result) == 1
+    assert result[0]["name"] == "Alice"  # type: ignore
+
+
+def test_speakers_filter_by_both(tmp_path):
+    speakers = [
+        {"id": 1, "event": "76186000006678002", "userProfile": 10},
+        {"id": 2, "event": "76186000006678002", "userProfile": 20},
+    ]
+    user_profiles = [
+        {"id": 10, "name": "Alice", "lastName": "Smith"},
+        {"id": 20, "name": "Bob", "lastName": "Jones"},
+    ]
+    session_speakers = [
+        {"speaker": 1, "session": 100, "event": "76186000006678002"},
+        {"speaker": 2, "session": 200, "event": "76186000006678002"},
+    ]
+    sessions = [
+        {"id": 100, "track": 1000, "event": "76186000006678002"},
+        {"id": 200, "track": 2000, "event": "76186000006678002"},
+    ]
+    track_translations = [
+        {"id": 1000, "title": "Python", "track": 1000},
+        {"id": 2000, "title": "JavaScript", "track": 2000},
+    ]
+    file_path = _make_test_data(
+        tmp_path,
+        speakers,
+        user_profiles,
+        session_speakers,
+        sessions,
+        track_translations,
+    )
+    import codemash_mcp.codemash as codemash
+
+    reader = codemash.CodeMashDataReader(file_path)
+    data = json.load(open(file_path, "r"))
+    # Directly test map_to_speaker
+    speaker_obj = helpers.map_to_speaker(data, data["speakers"][0])
+    assert speaker_obj["name"] == "Alice"  # type: ignore
+    result = reader.speakers(track_name="python", speaker_name="alice")
+    assert len(result) == 1
+    assert result[0]["name"] == "Alice"  # type: ignore
+    result = reader.speakers(track_name="python", speaker_name="bob")
+    assert len(result) == 0
