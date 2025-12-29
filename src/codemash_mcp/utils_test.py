@@ -1,4 +1,3 @@
-import datetime
 from logging import LogRecord
 from unittest.mock import Mock, patch
 

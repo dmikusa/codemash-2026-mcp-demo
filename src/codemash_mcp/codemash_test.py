@@ -5,7 +5,6 @@ import math
 
 from codemash_mcp.codemash import CodeMashDataReader
 from typing import cast, List, Dict
-from unittest.mock import patch
 
 from codemash_mcp.helpers import CODEMASH_EVENT_ID
 
