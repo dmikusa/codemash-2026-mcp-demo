@@ -1,92 +1,25 @@
 import json
 from pathlib import Path
 from typing import Annotated, Dict, Literal, TypedDict, cast
+from pydantic import Field, ValidationError
 
-CODEMASH_EVENT_ID = "76186000006678002"
-
-
-class Event(TypedDict, total=False):
-    name: str
-    description: str
-    summary: str
-    start_date: str
-    end_date: str
-    timezone: str
-    domain: str
-    twitter: str
-    facebook: str
-    linkedin: str
-    youtube: str
-    instagram: str
-    website: str
-
-
-class Hotel(TypedDict, total=False):
-    name: str
-    address: str
-    website: str
-
-
-class SpeakerSession(TypedDict, total=False):
-    title: str
-    description: str
-    type: str
-    start_time: str
-    duration: int
-    track: str
-    venue: str
-
-
-class Speaker(TypedDict, total=False):
-    name: str
-    last_name: str
-    company: str | None
-    designation: str | None
-    twitter: str | None
-    linkedin: str | None
-    description: str | None
-    sessions: list[SpeakerSession]
-
-
-class SessionSpeaker(TypedDict, total=False):
-    name: str
-    last_name: str
-
-
-class Session(TypedDict, total=False):
-    title: str
-    description: str | None
-    type: str
-    start_time: str
-    duration: int
-    track: str
-    venue: str
-    speakers: list[SessionSpeaker]
-
-
-class Track(TypedDict, total=False):
-    name: str
-
-
-class Venue(TypedDict, total=False):
-    name: str
-    street: str
-    city: str
-    state: str
-    latitude: float
-    longitude: float
-    zipcode: str
-    country: str
-
-
-ConferenceDay = Literal["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
-CONFERENCE_DAY_AGENDA_MAP: Dict[ConferenceDay, str] = {
-    "MONDAY": "76186000008378878",
-    "TUESDAY": "76186000008378881",
-    "WEDNESDAY": "76186000008389020",
-    "THURSDAY": "76186000008389143",
-    "FRIDAY": "76186000008389405",
-}
+from codemash_mcp.types import (
+    Event,
+    Hotel,
+    Speaker,
+    SpeakerSession,
+    Session,
+    Track,
+    Venue,
+    ConferenceDay,
+)
+from codemash_mcp.helpers import (
+    map_to_session,
+    find_matching_id,
+    is_codemash_event,
+    filters,
+    sessions_validations,
+)
 
 
 # TODO: add useful filtering for common queries
@@ -99,33 +32,18 @@ class CodeMashDataReader:
         self.data_directory = data_directory
         self.data = json.load(open(data_directory, "r"))
 
-    def _find_matching_id(
-        self, list_name: str, id_value: str | None, item_key="id", default={}
-    ):
-        return cast(
-            Dict[str, str],
-            next(
-                (
-                    item
-                    for item in self.data.get(list_name, [])
-                    if item.get(item_key) == id_value
-                ),
-                default,
-            ),
-        )
-
     def event(self) -> Annotated[Event | None, "CodeMash 2026 event information"]:
         """Retrieves information about the CodeMash 2026 event itself."""
         for event in self.data.get("events", []):
-            if event.get("id") != CODEMASH_EVENT_ID:
+            if not is_codemash_event(event, "id"):
                 continue
 
-            event_translation = self._find_matching_id(
-                "eventTranslations", event.get("id"), "event"
+            event_translation = find_matching_id(
+                self.data, "eventTranslations", event.get("id"), "event"
             )
-            portal = self._find_matching_id("portals", event.get("portal"))
-            socials = self._find_matching_id(
-                "eventSocialHandles", event.get("eventSocialHandle")
+            portal = find_matching_id(self.data, "portals", event.get("portal"))
+            socials = find_matching_id(
+                self.data, "eventSocialHandles", event.get("eventSocialHandle")
             )
             return Event(
                 {
@@ -155,11 +73,11 @@ class CodeMashDataReader:
         """
         hotel_list = []
         for hotel in self.data.get("hotels", []):
-            if hotel.get("event") != CODEMASH_EVENT_ID:
+            if not is_codemash_event(hotel):
                 continue
 
-            hotel_translation = self._find_matching_id(
-                "hotelTranslations", hotel.get("id"), "hotel"
+            hotel_translation = find_matching_id(
+                self.data, "hotelTranslations", hotel.get("id"), "hotel"
             )
             hotel_list.append(
                 Hotel(
@@ -178,29 +96,34 @@ class CodeMashDataReader:
         """Fetch the list of speakers for the CodeMash 2026 event."""
         speaker_list = []
         for speaker in self.data.get("speakers", []):
-            if speaker.get("event") != CODEMASH_EVENT_ID:
+            if not is_codemash_event(speaker):
                 continue
 
-            user_profile = self._find_matching_id(
-                "userProfiles", speaker.get("userProfile")
+            user_profile = find_matching_id(
+                self.data, "userProfiles", speaker.get("userProfile")
             )
 
             speaker_id = speaker.get("id")
             sessions = []
             for item in self.data.get("sessionSpeakers", []):
-                if (
-                    item.get("speaker") == speaker_id
-                    and item.get("event") == CODEMASH_EVENT_ID
-                ):
-                    session = self._find_matching_id("sessions", item.get("session"))
-                    session_translations = self._find_matching_id(
-                        "sessionTranslations", item.get("session"), "session"
+                if item.get("speaker") == speaker_id and is_codemash_event(item):
+                    session = find_matching_id(
+                        self.data, "sessions", item.get("session")
                     )
-                    track_translation = self._find_matching_id(
-                        "trackTranslations", session.get("track", ""), "track"
+                    session_translations = find_matching_id(
+                        self.data, "sessionTranslations", item.get("session"), "session"
                     )
-                    venue = self._find_matching_id(
-                        "sessionVenueTranslations", session.get("venue"), "sessionVenue"
+                    track_translation = find_matching_id(
+                        self.data,
+                        "trackTranslations",
+                        session.get("track", ""),
+                        "track",
+                    )
+                    venue = find_matching_id(
+                        self.data,
+                        "sessionVenueTranslations",
+                        session.get("venue"),
+                        "sessionVenue",
                     )
 
                     sessions.append(
@@ -248,11 +171,19 @@ class CodeMashDataReader:
         ] = None,
         start_time_range: Annotated[
             str | None,
-            "Filter sessions by time range, start time. Format: 'HHMM', which must pad with a leading zero for single digit hours. It uses the 24-hour clock. Start time must be before end time and cannot span midnight.",
+            Field(
+                description="Filter sessions by time range, start time. Format: 'HHMM', which must pad with a leading zero for single digit hours. It uses the 24-hour clock. Start time must be before end time and cannot span midnight.",
+                default=None,
+                pattern="^([01][0-9]|2[0-3])[0-5][0-9]$",
+            ),
         ] = None,
         end_time_range: Annotated[
             str | None,
-            "Filter sessions by time range, end time. Format: 'HHMM', which must pad with a leading zero for single digit hours. It uses the 24-hour clock. Start time must be before end time and cannot span midnight.",
+            Field(
+                description="Filter sessions by time range, end time. Format: 'HHMM', which must pad with a leading zero for single digit hours. It uses the 24-hour clock. Start time must be before end time and cannot span midnight.",
+                default="2400",
+                pattern="^([01][0-9]|2[0-3])[0-5][0-9]$",
+            ),
         ] = None,
         duration: Annotated[
             Literal[30, 60, 90, 115, 120, 125, 145, 180, 210, 235, 240, 265, 295]
@@ -265,127 +196,26 @@ class CodeMashDataReader:
         This method will return all of the sessions for the event, which can be a lot of data. You should prefer filtering
         by track name, venue name, speaker name, duration, day of the week, and/or time range to limit the results.
         """
-        if (start_time_range and not end_time_range) or (
-            end_time_range and not start_time_range
-        ):
-            raise ValueError(
-                "Both start_time_range and end_time_range must be provided together."
-            )
+        sessions_validations(start_time_range, end_time_range)
 
-        if start_time_range and end_time_range and start_time_range >= end_time_range:
-            raise ValueError(
-                "start_time_range must be before end_time_range and cannot span midnight."
-            )
-
-        if start_time_range and (
-            len(start_time_range) != 4 or not start_time_range.isdigit()
-        ):
-            raise ValueError(
-                "start_time_range must be in 'HHMM' format, which must pad with a leading zero for single digit hours."
-            )
-
-        if end_time_range and (
-            len(end_time_range) != 4 or not end_time_range.isdigit()
-        ):
-            raise ValueError(
-                "end_time_range must be in 'HHMM' format, which must pad with a leading zero for single digit hours."
-            )
-
-        if start_time_range and (
-            start_time_range < "0000" or start_time_range > "2400"
-        ):
-            raise ValueError(
-                "start_time_range must be a valid time in 'HHMM' format between '0000' and '2400'."
-            )
-
-        if end_time_range and (end_time_range < "0000" or end_time_range > "2400"):
-            raise ValueError(
-                "end_time_range must be a valid time in 'HHMM' format between '0000' and '2400'."
-            )
-
-        session_list = []
-
+        filtered_sessions = []
         for session in self.data.get("sessions", []):
-            if (
-                day_of_week
-                and session.get("agenda") != CONFERENCE_DAY_AGENDA_MAP[day_of_week]
-            ):
-                continue
-
-            session_start_time = session.get("startTime", None)
-            if (
-                start_time_range
-                and end_time_range
-                and session_start_time
-                and not (start_time_range <= session_start_time <= end_time_range)
-            ):
-                continue
-
-            if duration and int(session.get("duration", "0")) != duration:
-                continue
-
-            session_venue = self._find_matching_id(
-                "sessionVenues", session.get("venue"), "id"
-            )
-            if session_venue.get("event") != CODEMASH_EVENT_ID:
-                continue
-            venue = self._find_matching_id(
-                "sessionVenueTranslations", session.get("venue"), "sessionVenue"
-            )
-            if venue_name and venue.get("name", "") != venue_name:
-                continue
-
-            session_translation = self._find_matching_id(
-                "sessionTranslations", session.get("id"), "session"
-            )
-            track_translation = self._find_matching_id(
-                "trackTranslations", session.get("track", ""), "track"
-            )
-            if track_name and track_translation.get("title", "") != track_name:
-                continue
-
-            speakers = []
-            for session_speaker in self.data.get("sessionSpeakers", []):
-                if (
-                    session_speaker.get("session") == session.get("id")
-                    and session_speaker.get("event") == CODEMASH_EVENT_ID
-                ):
-                    speaker = self._find_matching_id(
-                        "speakers", session_speaker.get("speaker"), "id"
-                    )
-                    user_profile = self._find_matching_id(
-                        "userProfiles", speaker.get("userProfile")
-                    )
-                    speakers.append(
-                        SessionSpeaker(
-                            name=user_profile.get("name", ""),
-                            last_name=user_profile.get("lastName", ""),
-                        )
-                    )
-            if speaker_name and not any(
-                f"{speaker['name']} {speaker['last_name']}".lower().find(
-                    speaker_name.lower()
+            if all(
+                filter(
+                    self.data,
+                    session,
+                    day_of_week=day_of_week,
+                    start_time_range=start_time_range,
+                    end_time_range=end_time_range,
+                    duration=duration,
+                    venue_name=venue_name,
+                    track_name=track_name,
+                    speaker_name=speaker_name,
                 )
-                != -1
-                for speaker in speakers
+                for filter in filters
             ):
-                continue
-
-            session_list.append(
-                Session(
-                    {
-                        "title": session_translation.get("title", "Untitled"),
-                        "description": session_translation.get("description", ""),
-                        "type": session.get("sessionType", ""),
-                        "start_time": session_start_time,
-                        "duration": int(session.get("duration", "0")),
-                        "track": track_translation.get("title", "Unknown"),
-                        "venue": venue.get("name", "Unknown"),
-                        "speakers": speakers,
-                    }
-                )
-            )
-        return session_list
+                filtered_sessions.append(map_to_session(self.data, session))
+        return filtered_sessions
 
     def tracks(
         self,
@@ -393,11 +223,11 @@ class CodeMashDataReader:
         """Fetch the list of tracks for the CodeMash 2026 event."""
         track_list = []
         for track in self.data.get("tracks", []):
-            if track.get("event") != CODEMASH_EVENT_ID:
+            if not is_codemash_event(track):
                 continue
 
-            track_translation = self._find_matching_id(
-                "trackTranslations", track.get("id"), "track"
+            track_translation = find_matching_id(
+                self.data, "trackTranslations", track.get("id"), "track"
             )
             track_list.append(
                 Track(
@@ -413,11 +243,11 @@ class CodeMashDataReader:
     ) -> Annotated[Venue | None, "Venue information for the CodeMash 2026 event"]:
         """Fetch the venue information for the CodeMash 2026 event."""
         for venue in self.data.get("venues", []):
-            if venue.get("event") != CODEMASH_EVENT_ID:
+            if not is_codemash_event(venue):
                 continue
 
-            venue_translation = self._find_matching_id(
-                "venueTranslations", venue.get("id"), "venue"
+            venue_translation = find_matching_id(
+                self.data, "venueTranslations", venue.get("id"), "venue"
             )
             return Venue(
                 {

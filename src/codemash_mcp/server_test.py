@@ -28,8 +28,12 @@ class TestMcpServer:
         async with mcp_client as client:
             tools = [t.name for t in await client.list_tools()]
             assert {
-                # add expected tool names here
-                "",
+                "event",
+                "hotels",
+                "speakers",
+                "sessions",
+                "tracks",
+                "venue",
             }.issubset(tools)
 
     @pytest.mark.anyio
@@ -42,7 +46,7 @@ class TestMcpServer:
         assert len(route) == 1
         assert route[0].methods == {"GET", "HEAD"}
 
-        client = TestClient(server)
+        client = TestClient(server_app)
         response = client.get("/health")
         assert response.status_code == 200
         assert response.json() == {"status": "OK"}
