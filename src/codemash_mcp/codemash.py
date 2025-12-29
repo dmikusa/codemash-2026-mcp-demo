@@ -1,13 +1,12 @@
 import json
 from pathlib import Path
-from typing import Annotated, Dict, Literal, TypedDict, cast
-from pydantic import Field, ValidationError
+from typing import Annotated, Literal
+from pydantic import Field
 
 from codemash_mcp.types import (
     Event,
     Hotel,
     Speaker,
-    SpeakerSession,
     Session,
     Track,
     Venue,
@@ -105,7 +104,10 @@ class CodeMashDataReader:
         for speaker in self.data.get("speakers", []):
             if not is_codemash_event(speaker):
                 continue
-            if not all(f(self.data, speaker, track_name=track_name, speaker_name=speaker_name) for f in speaker_filters):
+            if not all(
+                f(self.data, speaker, track_name=track_name, speaker_name=speaker_name)
+                for f in speaker_filters
+            ):
                 continue
             speaker_list.append(map_to_speaker(self.data, speaker))
         return speaker_list

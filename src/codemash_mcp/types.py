@@ -1,4 +1,4 @@
-from typing import Dict, Literal, TypedDict
+from typing import Literal, TypedDict
 
 
 class Event(TypedDict, total=False):
