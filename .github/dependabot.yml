@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions" # See documentation for possible values
+    directory: "/" # Location of package manifests
+    schedule:
+      interval: "weekly"
+    allow:
+      - dependency-type: "all"
+    groups:
+      npm:
+        patterns:
+          - "*"
+        # group all minor and patch dependency updates together
+        update-types:
+          - "minor"
+          - "patch"

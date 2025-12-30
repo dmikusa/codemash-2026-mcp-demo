@@ -1,0 +1,31 @@
+[_]
+schema-version = "0.2"
+id = "com.mikusa.codemash-mcp"
+
+[io.buildpacks]
+builder = "paketobuildpacks/builder-jammy-base"
+exclude = [
+    ".pytest_cache/",
+    ".ruff_cache/",
+    ".idea/",
+    ".venv/",
+    ".vscode/",
+    "scripts/package.sh",
+    "**/__pycache__/",
+    "src/**/*_test.py",
+    ".coverage",
+    ".env.*",
+    ".git",
+    ".gitignore",
+    "justfile",
+    "README.md",
+    "sonar-project.properties"
+]
+
+[[io.buildpacks.build.env]]
+name = "BP_CPYTHON_VERSION"
+value = "3.13.*"
+
+[[io.buildpacks.build.env]]
+name = "BP_CPYTHON_RM_SETUPTOOLS"
+value = "true"
