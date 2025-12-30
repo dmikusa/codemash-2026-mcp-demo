@@ -1,0 +1,1 @@
+web: /workspace/scripts/start.sh

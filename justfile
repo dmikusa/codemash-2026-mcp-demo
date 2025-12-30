@@ -35,6 +35,11 @@ watch-all:
 watch TEST:
     watchexec -f "**/*.py" uv run --frozen pytest -vv {{TEST}}
 
+image-run:
+    podman run -it --rm -p 8000:8000 --env LOG_LEVEL=INFO --env CODEMASH_DATA_FILE=./data/endpoint-1.json --pull always ghcr.io/dmikusa/codemash-2026-mcp-demo:latest
+
 deps-upgrade:
     uv lock --upgrade
     uv sync
+    rm requirements.txt # must remove old one or `uv pip compile` won't overwrite it
+    uv pip compile pyproject.toml -o requirements.txt
