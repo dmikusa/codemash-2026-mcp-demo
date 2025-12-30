@@ -22,4 +22,6 @@ pack build \
   --trust-builder \
   --publish \
   --cache-image "$CACHE_URI" \
-  "$IMAGE_URI"
+  "$IMAGE_URI" \
+  --buildpack "dmikusa/apt@0.0.4" \
+  --buildpack "urn:cnb:builder:paketobuildpacks/python" \
