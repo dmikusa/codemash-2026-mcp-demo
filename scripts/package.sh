@@ -24,4 +24,4 @@ pack build \
   --cache-image "$CACHE_URI" \
   "$IMAGE_URI" \
   --buildpack "dmikusa/apt@0.0.4" \
-  --buildpack "urn:cnb:builder:paketobuildpacks/python" \
+  --buildpack "urn:cnb:builder:paketo-buildpacks/python" \
