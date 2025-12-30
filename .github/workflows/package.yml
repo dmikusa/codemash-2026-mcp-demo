@@ -2,7 +2,7 @@ name: Build, Package & Push Image to GHCR
 
 on:
   push:
-    pr:
+    pull_request:
     branches: [ "main" ]
     tags: [ "v*" ]
     paths:
