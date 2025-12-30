@@ -17,5 +17,3 @@ wheels/
 # settings files
 .env*
 
-# ignore data files
-data/endpoint-1.json
