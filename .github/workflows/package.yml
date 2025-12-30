@@ -19,6 +19,7 @@ on:
 
 env:
   IMAGE_URI: ghcr.io/dmikusa/codemash-2026-mcp-demo:test
+  CACHE_URI: ghcr.io/dmikusa/codemash-2026-mcp-demo-cache:test
 
 jobs:
   scan-app:
@@ -65,6 +66,7 @@ jobs:
         env:
           PROJECT: .
           IMAGE_URI: ${{ env.IMAGE_URI }}
+          CACHE_URI: ${{ env.CACHE_URI }}
 
   scan-image:
     name: Scan the created container image
