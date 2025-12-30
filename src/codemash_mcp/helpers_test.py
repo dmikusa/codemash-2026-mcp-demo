@@ -112,14 +112,14 @@ def test_sessions_filter_by_duration():
     assert not helpers.sessions_filter_by_duration({}, session, duration=90)
 
 
-def test_sessions_filter_by_venue():
+def test_sessions_filter_by_room():
     data = {
         "sessionVenues": [{"id": "v1", "event": helpers.CODEMASH_EVENT_ID}],
         "sessionVenueTranslations": [{"sessionVenue": "v1", "name": VENUE_1}],
     }
     session = make_session(venue="v1")
-    assert helpers.sessions_filter_by_venue(data, session, venue_name=VENUE_1)
-    assert not helpers.sessions_filter_by_venue(data, session, venue_name="Venue X")
+    assert helpers.sessions_filter_by_room(data, session, room_name=VENUE_1)
+    assert not helpers.sessions_filter_by_room(data, session, room_name="Venue X")
 
 
 def test_sessions_filter_by_track():

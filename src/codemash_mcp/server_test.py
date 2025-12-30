@@ -32,6 +32,7 @@ class TestMcpServer:
                 "hotels",
                 "speakers",
                 "sessions",
+                "rooms",
                 "tracks",
                 "venue",
             }.issubset(tools)

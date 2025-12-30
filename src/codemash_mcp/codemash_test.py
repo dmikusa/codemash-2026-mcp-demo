@@ -180,7 +180,16 @@ def test_sessions_time_range():
 
 def test_sessions_duration():
     reader = make_reader_with_sample()
+
     sessions = reader.sessions(duration=60)
     assert len(sessions) == 1
     sessions = reader.sessions(duration=90)
     assert len(sessions) == 0
+
+
+def test_rooms():
+    reader = make_reader_with_sample()
+    rooms = reader.rooms()
+    assert isinstance(rooms, list)
+    assert len(rooms) == 1
+    assert rooms[0] == VENUE_NAME
