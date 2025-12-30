@@ -16,6 +16,10 @@ on:
       - 'uv.lock'
   workflow_dispatch:
 
+env:
+  IMAGE_URI: ghcr.io/dmikusa/codemash-2026-mcp-demo:${{ github.ref_name }}
+  CACHE_URI: ghcr.io/dmikusa/codemash-2026-mcp-demo-cache:${{ github.ref_name }}
+
 jobs:
   scan-app:
     name: Scan the application for issues
@@ -41,6 +45,9 @@ jobs:
   build-image:
     name: Build and publish a container image
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v6
 
@@ -57,12 +64,15 @@ jobs:
         run: ./scripts/package.sh
         env:
           PROJECT: .
-          IMAGE_URI: ghcr.io/dmikusa/codemash-2026-mcp-demo:${{ github.ref_name }}
+          IMAGE_URI: ${{ env.IMAGE_URI }}
+          CACHE_URI: ${{ env.CACHE_URI }}
 
   scan-image:
     name: Scan the created container image
     runs-on: ubuntu-latest
     needs: build-image
+    permissions:
+      contents: read
     steps:
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -74,7 +84,7 @@ jobs:
       - name: Scan container image
         uses: aquasecurity/trivy-action@0.33.1
         with:
-          image-ref: ghcr.io/dmikusa/codemash-2026-mcp-demo:${{ github.ref_name }}
+          image-ref: ${{ env.IMAGE_URI }}
           exit-code: '1'
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'

@@ -11,9 +11,17 @@ if [ -z "$PROJECT" ]; then
   exit 255
 fi
 
+if [ -z "$CACHE_URI" ]; then
+  echo "CACHE_URI is not set. CACHE_URI should be set to the registry coordinates at which the build cache will be stored"
+  exit 255
+fi
+
 pack build \
   --descriptor "$PROJECT/project.toml" \
   --pull-policy=always \
   --trust-builder \
   --publish \
-  "$IMAGE_URI"
+  --cache-image "$CACHE_URI" \
+  "$IMAGE_URI" \
+  --buildpack "dmikusa/apt@0.0.4" \
+  --buildpack "urn:cnb:builder:paketo-buildpacks/python" \
