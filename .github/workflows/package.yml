@@ -2,7 +2,7 @@ name: Build, Package & Push Image to GHCR
 
 on:
   push:
-    branches: [ "develop" ]
+    branches: [ "main" ]
     tags: [ "v*" ]
     paths:
       - '.github/workflows/package.yml'
