@@ -1,1 +1,1 @@
-from codemash_mcp.server import server
+from codemash_mcp.server import server as server
