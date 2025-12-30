@@ -179,16 +179,21 @@ def sessions_filter_by_duration(data: Any, session: Any, **kwargs):
     return True
 
 
-def sessions_filter_by_venue(data: Any, session: Any, **kwargs):
-    venue_name = kwargs.get("venue_name")
-    session_venue = find_matching_id(data, "sessionVenues", session.get("venue"), "id")
-    if not is_codemash_event(session_venue):
-        return False
-    venue = find_matching_id(
-        data, "sessionVenueTranslations", session.get("venue"), "sessionVenue"
-    )
-    if venue_name:
-        return venue.get("name", "") == venue_name
+def sessions_filter_by_room(data: Any, session: Any, **kwargs):
+    room_name = kwargs.get("room_name")
+    if room_name:
+        # make sure this is part of our event
+        session_venue = find_matching_id(
+            data, "sessionVenues", session.get("venue"), "id"
+        )
+        if not is_codemash_event(session_venue):
+            return False
+
+        # filter by the room name
+        room = find_matching_id(
+            data, "sessionVenueTranslations", session.get("venue"), "sessionVenue"
+        )
+        return room.get("name", "") == room_name
     return True
 
 
@@ -245,7 +250,7 @@ filters = [
     sessions_filter_by_day_of_week,
     sessions_filter_by_time_range,
     sessions_filter_by_duration,
-    sessions_filter_by_venue,
+    sessions_filter_by_room,
     sessions_filter_by_track,
     sessions_filter_by_speaker,
 ]

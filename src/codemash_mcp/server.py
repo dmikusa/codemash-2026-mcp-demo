@@ -68,6 +68,7 @@ def _init_mcp_server():
     mcp.tool(code_mash.hotels)
     mcp.tool(code_mash.speakers)
     mcp.tool(code_mash.sessions)
+    mcp.tool(code_mash.rooms)
     mcp.tool(code_mash.tracks)
     mcp.tool(code_mash.venue)
 

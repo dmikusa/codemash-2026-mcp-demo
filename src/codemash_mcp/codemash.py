@@ -31,7 +31,14 @@ class CodeMashDataReader:
         self.data = json.load(open(data_directory, "r"))
 
     def event(self) -> Annotated[Event | None, "CodeMash 2026 event information"]:
-        """Retrieves information about the CodeMash 2026 event itself."""
+        """Retrieves information about the CodeMash 2026 event.
+
+        This is good information if the user is asking about the event itself. You should
+        prefer this to fetching information directly from the conference website (it's the
+        same information).
+
+        You may want to combine this information with the venue and hotels tool call as well.
+        """
         for event in self.data.get("events", []):
             if not is_codemash_event(event, "id"):
                 continue
@@ -68,6 +75,8 @@ class CodeMashDataReader:
         """Fetch the list of hotels available for the CodeMash 2026 event.
 
         This list does not include the Kalahari itself, which is also a viable hotel option.
+
+        You may want to combine this information with the event and venue tool call as well.
         """
         hotel_list = []
         for hotel in self.data.get("hotels", []):
@@ -115,7 +124,7 @@ class CodeMashDataReader:
     def sessions(
         self,
         track_name: Annotated[str | None, "Filter sessions by track name"] = None,
-        venue_name: Annotated[str | None, "Filter sessions by venue name"] = None,
+        room_name: Annotated[str | None, "Filter sessions by room name"] = None,
         speaker_name: Annotated[
             str | None,
             "Filter sessions by speaker name. Name may be first, last, and may be partial (case-insensitive, contains).",
@@ -148,7 +157,12 @@ class CodeMashDataReader:
         """Fetch the list of sessions for the CodeMash 2026 event.
 
         This method will return all of the sessions for the event, which can be a lot of data. You should prefer filtering
-        by track name, venue name, speaker name, duration, day of the week, and/or time range to limit the results.
+        by track name, room name, speaker name, duration, day of the week, and/or time range to limit the results, if that does
+        not require you to perform a lot of additional tool call requests.
+
+        If, for example, you are attempting to help a user plan their full week's schedule and you need the full set of sessions,
+        then it would be better to fetch all of the sessions without a filter to reduce the number of API calls necessary to
+        retrieve the full schedule.
         """
         sessions_validations(start_time_range, end_time_range)
 
@@ -162,7 +176,7 @@ class CodeMashDataReader:
                     start_time_range=start_time_range,
                     end_time_range=end_time_range,
                     duration=duration,
-                    venue_name=venue_name,
+                    room_name=room_name,
                     track_name=track_name,
                     speaker_name=speaker_name,
                 )
@@ -192,10 +206,31 @@ class CodeMashDataReader:
             )
         return track_list
 
+    def rooms(
+        self,
+    ) -> Annotated[list[str], "List of rooms names for the CodeMash 2026 event."]:
+        """Fetch the list of rooms/venues for the CodeMash 2026 event.
+
+        This information is primarily useful when filtering sessions by room name."""
+        room_list = []
+        for venue in self.data.get("sessionVenues", []):
+            if not is_codemash_event(venue):
+                continue
+
+            venue_translation = find_matching_id(
+                self.data, "sessionVenueTranslations", venue.get("id"), "sessionVenue"
+            )
+            room_list.append(venue_translation.get("name", "Unknown"))
+        return room_list
+
     def venue(
         self,
     ) -> Annotated[Venue | None, "Venue information for the CodeMash 2026 event"]:
-        """Fetch the venue information for the CodeMash 2026 event."""
+        """Fetch the venue information for the CodeMash 2026 event.
+
+        This information is high-level information about the overall event venue. You
+        may want to combine this information with the event and hotels tool call as well.
+        """
         for venue in self.data.get("venues", []):
             if not is_codemash_event(venue):
                 continue
