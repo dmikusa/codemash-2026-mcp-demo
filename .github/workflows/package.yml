@@ -1,7 +1,6 @@
 name: Build, Package & Push Image to GHCR
 
 on:
-  pull_request:
   push:
     branches: [ "main" ]
     tags: [ "v*" ]
@@ -18,8 +17,8 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE_URI: ghcr.io/dmikusa/codemash-2026-mcp-demo:test
-  CACHE_URI: ghcr.io/dmikusa/codemash-2026-mcp-demo-cache:test
+  IMAGE_URI: ghcr.io/dmikusa/codemash-2026-mcp-demo:${{ github.ref_name }}
+  CACHE_URI: ghcr.io/dmikusa/codemash-2026-mcp-demo-cache:${{ github.ref_name }}
 
 jobs:
   scan-app:
