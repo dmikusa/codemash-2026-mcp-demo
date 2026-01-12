@@ -38,6 +38,7 @@ def _init_mcp_server():
     cfg = Config()  # pyright: ignore[reportCallIssue]
     logger.debug(f"Loaded configuration: {cfg.model_dump_json()}")
 
+    # STEP: 1 - Init FastMCP & provide base instructions
     # create & register tools
     mcp = FastMCP(
         name="CodeMash 2026 Conference MCP",
@@ -50,7 +51,7 @@ def _init_mcp_server():
             largest indoor waterpark. Nobody will frown if you show up in shorts, sandals, and your loudest t-shirt.
             You might even win a prize for doing so.
             
-            It’s not just about a grind of sessions, but also providing attendees the opportunity of continuing
+            It's not just about a grind of sessions, but also providing attendees the opportunity of continuing
             the conversations and networking outside of the daily conference events. The goal has always been to
             achieve this mission by creating a conference environment that focuses on professionalism and respect
             for one another.
@@ -63,6 +64,7 @@ def _init_mcp_server():
             skills to augment the two basic days of sessions.""",
     )
 
+    # STEP: 4 - Register tools
     code_mash = CodeMashDataReader(cfg.data_file)
     mcp.tool(code_mash.event)
     mcp.tool(code_mash.hotels)
