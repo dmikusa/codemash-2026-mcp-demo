@@ -23,6 +23,7 @@ from codemash_mcp.helpers import (
 )
 
 
+# STEP: 2 - Plain old Python code
 class CodeMashDataReader:
     """A class to read CodeMash data from JSON files."""
 
@@ -30,6 +31,7 @@ class CodeMashDataReader:
         self.data_directory = data_directory
         self.data = json.load(open(data_directory, "r"))
 
+    # STEP: 3 - Annotated data & types
     def event(self) -> Annotated[Event | None, "CodeMash 2026 event information"]:
         """Retrieves information about the CodeMash 2026 event.
 
