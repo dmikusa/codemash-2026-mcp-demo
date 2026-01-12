@@ -29,7 +29,7 @@ class Config(BaseSettings):
     )
 
     data_file: Path = Field(
-        default=Path("data/endpoint-1.json"),
+        default=Path("data/endpoint-3.json"),
         description="The location of the CodeMash data file to use.",
     )
 
